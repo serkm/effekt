@@ -134,7 +134,7 @@ enum Statement {
   /**
   *  e.g. Int *x; s
   */
-  case Alloc(name: Variable, rest: Statement)
+  case Allocate(name: Variable, rest: Statement)
 
   /**
   * e.g. y = *x; s
@@ -205,7 +205,7 @@ enum Type {
   case Int()
   case Double()
   case String()
-  case Pointer(tpe: Type)
+  case Reference(tpe: Type)
 }
 export Type.{ Positive, Negative }
 
