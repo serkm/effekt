@@ -207,7 +207,7 @@ enum Stmt extends Tree {
 
   case State(id: Symbol, init: Pure, region: Symbol, body: Stmt)
   case Handle(body: Block, answerType: ValueType, handler: List[Handler])
-  case Region(body: Block)
+  case Region(body: Block, answerType: ValueType)
 }
 export Stmt.*
 
@@ -287,8 +287,8 @@ object Tree {
           State(id, rewrite(init), reg, rewrite(body))
         case Handle(body, tpe, handler) =>
           Handle(rewrite(body), tpe, handler map rewrite)
-        case Region(body) =>
-          Region(rewrite(body))
+        case Region(body, tpe) =>
+          Region(rewrite(body), tpe)
         case Match(scrutinee, clauses) =>
           Match(rewrite(scrutinee), clauses map {
             case (p, b) => (p, rewrite(b).asInstanceOf[BlockLit])

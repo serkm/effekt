@@ -109,7 +109,7 @@ object ChezSchemeLift extends Backend {
       }
       chez.Handle(handlers, toChez(body))
 
-    case Region(body) => chez.Builtin("with-region", toChez(body))
+    case Region(body, _) => chez.Builtin("with-region", toChez(body))
 
     case other => chez.Let(Nil, toChez(other))
   }

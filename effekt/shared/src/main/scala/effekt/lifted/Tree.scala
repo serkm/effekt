@@ -85,7 +85,7 @@ case class Handle(body: Block, answerType: ValueType, handler: List[Handler]) ex
 
 case class Handler(id: Interface, clauses: List[(Operation, BlockLit)]) extends Tree
 
-case class Region(body: Block) extends Stmt
+case class Region(body: Block, answerType: ValueType) extends Stmt
 
 /**
  * Evidence for lifts
@@ -113,7 +113,7 @@ def freeVariables(stmt: Stmt): Set[Symbol] = stmt match {
   case Handle(body, tpe, handlers) => freeVariables(body) ++ handlers.flatMap {
     case Handler(id, clauses) => clauses.flatMap { case (operation, lit) => freeVariables(lit) }
   }
-  case Region(body) => freeVariables(body)
+  case Region(body, _) => freeVariables(body)
 }
 
 def freeVariables(expr: Expr): Set[Symbol] = expr match {
