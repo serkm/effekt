@@ -134,7 +134,7 @@ enum Statement {
   /**
   *  e.g. Int *x; s
   */
-  case Allocate(name: Variable, rest: Statement)
+  case Allocate(name: Variable, region: Variable, rest: Statement)
 
   /**
   * e.g. y = *x; s
@@ -159,7 +159,7 @@ enum Statement {
   /**
    * e.g. let k = stack { (x, ...) => s }; s
    */
-  case NewStack(name: Variable, frame: Clause, rest: Statement)
+  case NewStack(name: Variable, region: Variable, frame: Clause, rest: Statement)
 
   /**
    * e.g. push k; s
@@ -206,6 +206,7 @@ enum Type {
   case Double()
   case String()
   case Reference(tpe: Type)
+  case Region()
 }
 export Type.{ Positive, Negative }
 
