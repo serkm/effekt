@@ -392,12 +392,51 @@ free:
     ret %MetaStackPointer %start
 
 backup:
-    call void @createBackup(%ResumptionPointer %resumption, %MetaStackPointer %start, %MetaStackPointer %end)
-
     %newReferenceCount = sub %ReferenceCount %referenceCount, 1
     store %ReferenceCount %newReferenceCount, ptr %referenceCount_pointer
 
+    %tag_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 1
+    store i1 0, ptr %tag_pointer
+
+    call tailcc void @createBackup(%ResumptionPointer %resumption, %MetaStackPointer %start, %MetaStackPointer %end)
+
     ret %MetaStackPointer %start
+}
+
+define private tailcc void @createBackup(%ResumptionPointer %resumption, %MetaStackPointer %stack, %MetaStackPointer %end) {
+    %memory_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1
+    %region_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 2
+    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 4
+
+    %memory = load %Memory, ptr %memory_pointer
+    %region = load %Region, ptr %region_pointer
+    %rest = load %MetaStackPointer, ptr %rest_pointer
+
+    %newMemory = call %Memory @copyMemory(%Memory %memory)
+    %newRegion = call %Region @copyRegion(%Region %region)
+
+    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
+    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %newRest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 5
+
+    store %Memory %newMemory, ptr %newMemory_pointer
+    store %Region %newRegion, ptr %newRegion_pointer
+    store %MetaStackPointer %stack, ptr %newMetaStack_pointer
+
+    %isEnd = icmp eq %MetaStackPointer %stack, %end
+    br i1 %isEnd, label %done, label %recurse
+
+done:
+    store %ResumptionPointer null, ptr %newRest_pointer
+    ret void
+
+recurse:
+    %newRest = call ptr @malloc(i64 120)
+    store %ResumptionPointer %newRest, ptr %newRest_pointer
+
+    call void tailcc @createBackup(%Resumption %newRest, %MetaStackPointer %rest, %MetaStackPointer %end)
+    ret void
 }
 
 define private %MetaStackPointer @pushStackBackup(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
