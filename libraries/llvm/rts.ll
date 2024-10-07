@@ -70,12 +70,15 @@
 %MetaStackPointer = type ptr
 
 ; This is used as part of an intrusive linked-list of stacks (meta stack)
-%MetaStack = type { %ReferenceCount, %Memory, %Region, %MetaStackPointer }
+%MetaStack = type { %ReferenceCount, %Memory, %Region, %ResumptionPointer, %MetaStackPointer }
 
+; This points to either a %Resumption (tag = 0) or a %LazyResumption (tag = 1)
 %ResumptionPointer = type ptr
 
 ; TODO use array instead of linked list
-%Resumption = type { %ReferenceCount, %MetaStackPointer, %Memory, %Region, %ResumptionPointer }
+%Resumption = type { %ReferenceCount, i1, %MetaStackPointer, %Memory, %Region, %ResumptionPointer }
+
+%LazyResumption = type { %ReferenceCount, i1, %MetaStackPointer, %MetaStackPointer }
 
 ; Positive data types consist of a (type-local) tag and a heap object
 %Pos = type {i64, %Object}
