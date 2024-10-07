@@ -416,17 +416,87 @@ copy:
     ret %MetaStackPointer %newStack2
 }
 
+define private tailcc void @displace(%MetaStackPointer %stack) {
+    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 4
+    %rest = load %MetaStackPointer, ptr %rest_pointer
+    %isEnd = icmp eq %MetaStackPointer %rest, null
+    br i1 %isEnd, label %found, label %recurse
+
+recurse:
+    tail call tailcc void @displace(%MetaStackPointer %rest)
+    ret void
+
+found:
+    %resumption_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 3
+    %resumption = load %ResumptionPointer, ptr %resumption_pointer
+
+    %metaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %metaStack = load %MetaStackPointer, ptr %metaStack_pointer
+
+    tail call tailcc void @forcePopStacks(%ResumptionPointer %resumption, %MetaStackPointer %metaStack)
+    ret void
+}
+
+define private tailcc void @forcePopStacks(%ResumptionPointer %resumption, %MetaStackPointer %stack) {
+    %memory_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1
+    %region_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 2
+    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 4
+
+    %memory = load %Memory, ptr %memory_pointer
+    %region = load %Region, ptr %region_pointer
+    %rest = load %MetaStackPointer, ptr %rest_pointer
+
+    %newReferenceCount_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 0
+    %newTag_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
+    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
+    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %newRest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 5
+
+    store %ReferenceCount 0, ptr %newReferenceCount_pointer
+    store i1 0, ptr %newTag_pointer
+    store %Memory %memory, ptr %newMemory_pointer
+    store %Region %region, ptr %newRegion_pointer
+    store %MetaStackPointer %stack, ptr %newMetaStack_pointer
+
+    %stackPointer_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1, i32 0
+    store %StackPointer null, ptr %stackPointer_pointer
+
+    %last = icmp eq %MetaStackPointer %rest, null
+    br i1 %last, label %end, label %recurse
+
+end:
+    store %ResumptionPointer null, %ResumptionPointer %newRest_pointer
+    ret void
+
+recurse:
+    %next = call void @malloc(i64 120)
+    store %ResumptionPointer %next, %ResumptionPointer %newRest_pointer
+    tail call tailcc void @forcePopStacks(%ResumptionPointer %next, %MetaStackPointer %rest)
+    ret void
+}
+
 define private %MetaStackPointer @pushUniqueStack(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
     %isNull = icmp eq %ResumptionPointer %resumption, null
-    br i1 %isNull, label %return, label %push
+    br i1 %isNull, label %return, label %checkLazy
 
 return:
     ret %MetaStackPointer %oldStack
 
-push:
+checkLazy:
     %metaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
     %metaStack = load %MetaStackPointer, ptr %metaStack_pointer
 
+    %stackPointer_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 1, i32 0
+    %stackPointer = load %StackPointer, ptr stackPointer_pointer
+    %isOccupied = icmp ne %StackPointer %stackPointer, null
+    br i1 %isOccupied, label %displace, label %push
+
+displace:
+    call void @displace(%MetaStackPointer %metaStack)
+    br label %push
+
+push:
     %memory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
     %region_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
 
@@ -547,6 +617,9 @@ define private %MetaStackPointer @underflowStack(%MetaStackPointer %metaStack) {
     call void @eraseMemory(%Memory %memory)
     call void @eraseRegion(%Region %region)
     call void @eraseMetaStack(%MetaStackPointer %metaStack)
+
+    %stackPointer_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 1, i32 0
+    store %StackPointer null, ptr %stackPointer_pointer
 
     ret %MetaStackPointer %rest
 }
