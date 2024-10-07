@@ -363,7 +363,60 @@ define private %ResumptionPointer @newStack(%MetaStackPointer %metaStack) always
     ret %ResumptionPointer %resumption
 }
 
-define private %MetaStackPointer @pushStack(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
+define private @pushStack(%ResumptionPointer %resumption, %MetaStackPointer %oldPointer) alwaysinline {
+    %tag_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
+    %tag = load i1, ptr %tag_pointer
+
+    %push = select i1 tag, ptr @pushStackLazy, ptr @pushStackBackup
+    %newStack = call %MetaStackPointer %push(%ResumptionPointer %resumption, %MetaStackPointer %oldStack)
+
+    ret %MetaStackPointer %newStack
+}
+
+define private %MetaStackPointer @pushStackLazy(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
+    %referenceCount_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 0
+    %start_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %end_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 3
+
+    %referenceCount = load %ReferenceCount, ptr %referenceCount_pointer
+    %start = load %MetaStackPointer, ptr %start_pointer
+    %end = load %MetaStackPointer, ptr %end_pointer
+
+    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %end, i64 0, i32 4
+    store %MetaStackPointer %oldStack, ptr %rest_pointer
+
+    switch %ReferenceCount %referenceCount, label %backup [%ReferenceCount 0, label %free]
+
+free:
+    call void @free(%ResumptionPointer %resumption)
+    ret %MetaStackPointer %start
+
+backup:
+    call void @createBackup(%ResumptionPointer %resumption, %MetaStackPointer %start, %MetaStackPointer %end)
+
+    %newReferenceCount = sub %ReferenceCount %referenceCount, 1
+    store %ReferenceCount %newReferenceCount, ptr %referenceCount_pointer
+
+    ret %MetaStackPointer %start
+}
+
+define private %MetaStackPointer @pushStackBackup(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
+    %referenceCount_pointer = getelementptr %Resumption, %ResumptionPointer %resuption, i64 0, i32 0
+    %referenceCount = load %ReferenceCount ptr %referenceCount_pointer
+
+    switch %ReferenceCount %referenceCount, label %copy [%ReferenceCount 0, label %unique]
+
+unique:
+    %newStack = tail call %MetaStackPointer @pushUniqueStack(%ResumptionPointer %resumption, %MetaStackPointer %oldStack)
+    ret %MetaStackPointer %newStack
+
+copy:
+    %newResumption = call %ResumptionPointer @uniqueStack(%ResumptionPointer %resumption)
+    %newStack2 = tail call %MetaStackPointer @pushUniqueStack(%ResumptionPointer %newResumption, %MetaStackPointer %oldStack)
+    ret %MetaStackPointer %newStack2
+}
+
+define private %MetaStackPointer @pushUniqueStack(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
     %isNull = icmp eq %ResumptionPointer %resumption, null
     br i1 %isNull, label %return, label %push
 
