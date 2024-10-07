@@ -452,37 +452,25 @@ push:
 }
 
 define private %ResumptionPointer @popStacks(%MetaStackPointer %stack, %MetaStackPointer %prompt) alwaysinline {
-    %memory_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1
-    %region_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 2
-    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 3
-
     %resumption = call ptr @malloc(i64 120)
-    %newReferenceCount_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 0
-    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
-    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
-    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
-    %newRest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
 
-    %memory = load %Memory, ptr %memory_pointer
-    %region = load %Region, ptr %region_pointer
+    %referenceCount_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 0
+    %tag_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 1
+    %start_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %end_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 3
 
-    store %ReferenceCount 0, ptr %newReferenceCount_pointer
-    store %MetaStackPointer %stack, ptr %newMetaStack_pointer
-    store %Memory %memory, ptr %newMemory_pointer
-    store %Region %region, ptr %newRegion_pointer
+    store %ReferenceCount 0, ptr %referenceCount_pointer
+    store i1 1, ptr %tag_pointer
+    store %MetaStackPointer %stack, ptr %start_pointer
+    store %MetaStackPointer %prompt, ptr %end_pointer
 
-    %isPrompt = icmp eq %MetaStackPointer %stack, %prompt
-    br i1 %isPrompt, label %end, label %recurse
+    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %prompt, i64 0, i32 4
+    store %MetaStackPointer null, ptr %rest_pointer
 
-end:
-    store %ResumptionPointer null, ptr %newRest_pointer
-    ret %ResumptionPointer %resumption
+    %resumption_pointer = getelementptr %MetaStack, %MetaStackPointer %prompt, i64 0, i32 3
+    store %ResumptionPointer %resumption, ptr %resumption_pointer
 
-recurse:
-    %rest = load %MetaStackPointer, ptr %rest_pointer
-    %restResumption = call %ResumptionPointer @popStacks(%MetaStackPointer %rest, %MetaStackPointer %prompt)
-    store %ResumptionPointer %restResumption, ptr %newRest_pointer
-    ret %ResumptionPointer %resumption
+    ret %ResumptionPointer %resuption
 }
 
 define private void @eraseMemory(%Memory %memory) {
