@@ -69,11 +69,11 @@
 ; The "meta" stack (a stack of stacks) -- a pointer to a %MetaStack
 %MetaStackPointer = type ptr
 
-; This is used as part of an intrusive linked-list of stacks (meta stack)
-%MetaStack = type { %ReferenceCount, %Memory, %Region, %ResumptionPointer, %MetaStackPointer }
-
 ; This points to either a %Resumption (tag = 0) or a %LazyResumption (tag = 1)
 %ResumptionPointer = type ptr
+
+; This is used as part of an intrusive linked-list of stacks (meta stack)
+%MetaStack = type { %ReferenceCount, %Memory, %Region, %ResumptionPointer, %MetaStackPointer }
 
 ; TODO use array instead of linked list
 %Resumption = type { %ReferenceCount, i1, %MetaStackPointer, %Memory, %Region, %ResumptionPointer }
@@ -117,8 +117,8 @@ declare void @exit(i64)
 
 ; Prompts
 
-define private %MetaStackPointer @freshPrompt() alwaysinline {
-    %prompt = call ptr @malloc(i64 112)
+define external %MetaStackPointer @freshPrompt() alwaysinline {
+    %prompt = call ptr @malloc(i64 120)
     %memory = call %Memory @newMemory()
     %metaStack = insertvalue %MetaStack zeroinitializer, %Memory %memory, 1
     store %MetaStack %metaStack, %MetaStackPointer %prompt
@@ -127,7 +127,7 @@ define private %MetaStackPointer @freshPrompt() alwaysinline {
 
 ; Garbage collection
 
-define private %Object @newObject(%Eraser %eraser, i64 %environmentSize) alwaysinline {
+define external %Object @newObject(%Eraser %eraser, i64 %environmentSize) alwaysinline {
     ; This magical 16 is the size of the object header
     %size = add i64 %environmentSize, 16
     %object = call ptr @malloc(i64 %size)
@@ -138,13 +138,13 @@ define private %Object @newObject(%Eraser %eraser, i64 %environmentSize) alwaysi
     ret %Object %object
 }
 
-define private %Environment @objectEnvironment(%Object %object) alwaysinline {
+define external %Environment @objectEnvironment(%Object %object) alwaysinline {
     ; Environment is stored right after header
     %environment = getelementptr %Header, ptr %object, i64 1
     ret %Environment %environment
 }
 
-define private void @shareObject(%Object %object) alwaysinline {
+define external void @shareObject(%Object %object) alwaysinline {
     %isNull = icmp eq %Object %object, null
     br i1 %isNull, label %done, label %next
 
@@ -171,7 +171,7 @@ define void @shareNegative(%Neg %val) alwaysinline {
     ret void
 }
 
-define private void @eraseObject(%Object %object) alwaysinline {
+define external void @eraseObject(%Object %object) alwaysinline {
     %isNull = icmp eq %Object %object, null
     br i1 %isNull, label %done, label %next
 
@@ -212,7 +212,7 @@ define void @eraseNegative(%Neg %val) alwaysinline {
 
 ; Arena management
 
-define private { ptr, %Reference } @alloc(i64 %index, %MetaStackPointer %stack) alwaysinline {
+define external { ptr, %Reference } @alloc(i64 %index, %MetaStackPointer %stack) alwaysinline {
     %region_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 2
 
     %stackPointer_pointer = getelementptr %Region, ptr %region_pointer, i64 0, i64 %index, i32 0
@@ -268,7 +268,7 @@ realloc:
 }
 
 
-define private ptr @getPointer(%Reference %reference, i64 %index) {
+define external ptr @getPointer(%Reference %reference, i64 %index) {
     %stack = extractvalue %Reference %reference, 0
     %offset = extractvalue %Reference %reference, 1
 
@@ -278,7 +278,7 @@ define private ptr @getPointer(%Reference %reference, i64 %index) {
     ret ptr %pointer
 }
 
-define private ptr @getVarPointer(%Reference %reference) {
+define external ptr @getVarPointer(%Reference %reference) {
     %stack = extractvalue %Reference %reference, 0
     %offset = extractvalue %Reference %reference, 1
 
@@ -288,7 +288,7 @@ define private ptr @getVarPointer(%Reference %reference) {
     ret ptr %varPointer
 }
 
-define private %Reference @newReference(%MetaStackPointer %stack) alwaysinline {
+define external %Reference @newReference(%MetaStackPointer %stack) alwaysinline {
     %stackPointerPointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1, i32 0
     %basePointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1, i32 1
 
@@ -308,7 +308,7 @@ define private %Reference @newReference(%MetaStackPointer %stack) alwaysinline {
 
 ; Stack management
 
-define private %StackPointer @stackAllocate(%MetaStackPointer %stack, i64 %n) {
+define external %StackPointer @stackAllocate(%MetaStackPointer %stack, i64 %n) {
     %stackStackPointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1, i32 0
     %stackPointer = load %StackPointer, ptr %stackStackPointer
 
@@ -317,7 +317,7 @@ define private %StackPointer @stackAllocate(%MetaStackPointer %stack, i64 %n) {
     ret %StackPointer %stackPointer
 }
 
-define private %StackPointer @stackDeallocate(%MetaStackPointer %stack, i64 %n) {
+define external %StackPointer @stackDeallocate(%MetaStackPointer %stack, i64 %n) {
     %stackStackPointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1, i32 0
     %stackPointer = load %StackPointer, ptr %stackStackPointer
 
@@ -330,7 +330,7 @@ define private %StackPointer @stackDeallocate(%MetaStackPointer %stack, i64 %n) 
 
 ; Meta-stack management
 
-define private %Memory @newMemory() {
+define external %Memory @newMemory() {
     %stackPointer = call %StackPointer @malloc(i64 268435456)
     %limit = getelementptr i8, ptr %stackPointer, i64 268435456
 
@@ -341,10 +341,10 @@ define private %Memory @newMemory() {
     ret %Memory %memory.2
 }
 
-define private %ResumptionPointer @newStack(%MetaStackPointer %metaStack) alwaysinline {
+define external %ResumptionPointer @newStack(%MetaStackPointer %metaStack) alwaysinline {
 
     ; TODO find actual size of stack
-    %resumption = call ptr @malloc(i64 120)
+    %resumption = call ptr @malloc(i64 128)
 
     %memory_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 1
     %region_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 2
@@ -352,28 +352,27 @@ define private %ResumptionPointer @newStack(%MetaStackPointer %metaStack) always
     %memory = load %Memory, ptr %memory_pointer
     %region = load %Region, ptr %region_pointer
 
-    %resumption.0 = insertvalue %Resumption undef, %ReferenceCount 0, 0
-    %resumption.1 = insertvalue %Resumption %resumption.0, %MetaStackPointer %metaStack, 1
-    %resumption.2 = insertvalue %Resumption %resumption.1, %Memory %memory, 2
-    %resumption.3 = insertvalue %Resumption %resumption.2, %Region %region, 3
-    %resumption.4 = insertvalue %Resumption %resumption.3, %ResumptionPointer zeroinitializer, 4
+    %resumption.0 = insertvalue %LazyResumption undef, %ReferenceCount 0, 0
+    %resumption.1 = insertvalue %LazyResumption %resumption.0, i1 1, 1
+    %resumption.2 = insertvalue %LazyResumption %resumption.1, %MetaStackPointer %metaStack, 2
+    %resumption.3 = insertvalue %LazyResumption %resumption.2, %MetaStackPointer %metaStack, 3
 
-    store %Resumption %resumption.4, %ResumptionPointer %resumption
+    store %LazyResumption %resumption.3, %ResumptionPointer %resumption
 
     ret %ResumptionPointer %resumption
 }
 
-define private @pushStack(%ResumptionPointer %resumption, %MetaStackPointer %oldPointer) alwaysinline {
+define external %MetaStackPointer @pushStack(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
     %tag_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
     %tag = load i1, ptr %tag_pointer
 
-    %push = select i1 tag, ptr @pushStackLazy, ptr @pushStackBackup
+    %push = select i1 %tag, ptr @pushStackLazy, ptr @pushStackBackup
     %newStack = call %MetaStackPointer %push(%ResumptionPointer %resumption, %MetaStackPointer %oldStack)
 
     ret %MetaStackPointer %newStack
 }
 
-define private %MetaStackPointer @pushStackLazy(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
+define external %MetaStackPointer @pushStackLazy(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
     %referenceCount_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 0
     %start_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 2
     %end_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 3
@@ -403,7 +402,7 @@ backup:
     ret %MetaStackPointer %start
 }
 
-define private tailcc void @createBackup(%ResumptionPointer %resumption, %MetaStackPointer %stack, %MetaStackPointer %end) {
+define external tailcc void @createBackup(%ResumptionPointer %resumption, %MetaStackPointer %stack, %MetaStackPointer %end) {
     %memory_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1
     %region_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 2
     %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 4
@@ -415,9 +414,14 @@ define private tailcc void @createBackup(%ResumptionPointer %resumption, %MetaSt
     %newMemory = call %Memory @copyMemory(%Memory %memory)
     %newRegion = call %Region @copyRegion(%Region %region)
 
-    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
-    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
-    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %stackPointer = extractvalue %Memory %newMemory, 0
+    call void @shareFrames(%StackPointer %stackPointer)
+
+    call void @shareMetaStack(%MetaStackPointer %stack)
+
+    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
+    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
     %newRest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 5
 
     store %Memory %newMemory, ptr %newMemory_pointer
@@ -432,16 +436,16 @@ done:
     ret void
 
 recurse:
-    %newRest = call ptr @malloc(i64 120)
+    %newRest = call ptr @malloc(i64 128)
     store %ResumptionPointer %newRest, ptr %newRest_pointer
 
-    call void tailcc @createBackup(%Resumption %newRest, %MetaStackPointer %rest, %MetaStackPointer %end)
+    tail call tailcc void @createBackup(%ResumptionPointer %newRest, %MetaStackPointer %rest, %MetaStackPointer %end)
     ret void
 }
 
-define private %MetaStackPointer @pushStackBackup(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
-    %referenceCount_pointer = getelementptr %Resumption, %ResumptionPointer %resuption, i64 0, i32 0
-    %referenceCount = load %ReferenceCount ptr %referenceCount_pointer
+define external %MetaStackPointer @pushStackBackup(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
+    %referenceCount_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 0
+    %referenceCount = load %ReferenceCount, ptr %referenceCount_pointer
 
     switch %ReferenceCount %referenceCount, label %copy [%ReferenceCount 0, label %unique]
 
@@ -455,7 +459,7 @@ copy:
     ret %MetaStackPointer %newStack2
 }
 
-define private tailcc void @displace(%MetaStackPointer %stack) {
+define external tailcc void @displace(%MetaStackPointer %stack) {
     %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 4
     %rest = load %MetaStackPointer, ptr %rest_pointer
     %isEnd = icmp eq %MetaStackPointer %rest, null
@@ -476,7 +480,7 @@ found:
     ret void
 }
 
-define private tailcc void @forcePopStacks(%ResumptionPointer %resumption, %MetaStackPointer %stack) {
+define external tailcc void @forcePopStacks(%ResumptionPointer %resumption, %MetaStackPointer %stack) {
     %memory_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1
     %region_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 2
     %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 4
@@ -487,9 +491,9 @@ define private tailcc void @forcePopStacks(%ResumptionPointer %resumption, %Meta
 
     %newReferenceCount_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 0
     %newTag_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
-    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
-    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
-    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
+    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
     %newRest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 5
 
     store %ReferenceCount 0, ptr %newReferenceCount_pointer
@@ -509,13 +513,13 @@ end:
     ret void
 
 recurse:
-    %next = call void @malloc(i64 120)
+    %next = call ptr @malloc(i64 128)
     store %ResumptionPointer %next, %ResumptionPointer %newRest_pointer
     tail call tailcc void @forcePopStacks(%ResumptionPointer %next, %MetaStackPointer %rest)
     ret void
 }
 
-define private %MetaStackPointer @pushUniqueStack(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
+define external %MetaStackPointer @pushUniqueStack(%ResumptionPointer %resumption, %MetaStackPointer %oldStack) alwaysinline {
     %isNull = icmp eq %ResumptionPointer %resumption, null
     br i1 %isNull, label %return, label %checkLazy
 
@@ -523,11 +527,11 @@ return:
     ret %MetaStackPointer %oldStack
 
 checkLazy:
-    %metaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
+    %metaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
     %metaStack = load %MetaStackPointer, ptr %metaStack_pointer
 
     %stackPointer_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 1, i32 0
-    %stackPointer = load %StackPointer, ptr stackPointer_pointer
+    %stackPointer = load %StackPointer, ptr %stackPointer_pointer
     %isOccupied = icmp ne %StackPointer %stackPointer, null
     br i1 %isOccupied, label %displace, label %push
 
@@ -536,8 +540,8 @@ displace:
     br label %push
 
 push:
-    %memory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
-    %region_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
+    %memory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
+    %region_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
 
     %newMemory_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 1
     %newRegion_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 2
@@ -548,20 +552,20 @@ push:
     store %Memory %memory, ptr %newMemory_pointer
     store %Region %region, ptr %newRegion_pointer
 
-    %rest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %rest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 5
     %rest = load %ResumptionPointer, ptr %rest_pointer
 
-    %nextMetaStack = call %MetaStackPointer @pushStack(%ResumptionPointer %rest, %MetaStackPointer %oldStack)
+    %nextMetaStack = call %MetaStackPointer @pushUniqueStack(%ResumptionPointer %rest, %MetaStackPointer %oldStack)
 
-    %newRest_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 3
+    %newRest_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 4
     store %MetaStackPointer %nextMetaStack, ptr %newRest_pointer
 
     call void @free(%ResumptionPointer %resumption)
     ret %MetaStackPointer %metaStack
 }
 
-define private %ResumptionPointer @popStacks(%MetaStackPointer %stack, %MetaStackPointer %prompt) alwaysinline {
-    %resumption = call ptr @malloc(i64 120)
+define external %ResumptionPointer @popStacks(%MetaStackPointer %stack, %MetaStackPointer %prompt) alwaysinline {
+    %resumption = call ptr @malloc(i64 128)
 
     %referenceCount_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 0
     %tag_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 1
@@ -579,16 +583,16 @@ define private %ResumptionPointer @popStacks(%MetaStackPointer %stack, %MetaStac
     %resumption_pointer = getelementptr %MetaStack, %MetaStackPointer %prompt, i64 0, i32 3
     store %ResumptionPointer %resumption, ptr %resumption_pointer
 
-    ret %ResumptionPointer %resuption
+    ret %ResumptionPointer %resumption
 }
 
-define private void @eraseMemory(%Memory %memory) {
+define external void @eraseMemory(%Memory %memory) {
     %base_pointer = extractvalue %Memory %memory, 1
     call void @free(%Base %base_pointer)
     ret void
 }
 
-define private void @forEachObject(ptr %elementPointer, ptr %end, ptr %f) alwaysinline {
+define external void @forEachObject(ptr %elementPointer, ptr %end, ptr %f) alwaysinline {
     %done = icmp uge ptr %elementPointer, %end
     br i1 %done, label %return, label %erase
 
@@ -604,7 +608,7 @@ return:
     ret void
 }
 
-define private void @eraseRegion(%Region %region) alwaysinline {
+define external void @eraseRegion(%Region %region) alwaysinline {
     %valuesBase = extractvalue %Region %region, 0, 1
     call void @free(%Base %valuesBase)
 
@@ -644,26 +648,26 @@ define void @shareMetaStack(%MetaStackPointer %metaStack) alwaysinline {
     ret void
 }
 
-define private %MetaStackPointer @underflowStack(%MetaStackPointer %metaStack) {
+define external %MetaStackPointer @underflowStack(%MetaStackPointer %metaStack) {
     %memory_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 1
     %region_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 2
-    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 3
+    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 4
 
     %memory = load %Memory, ptr %memory_pointer
     %region = load %Region, ptr %region_pointer
     %rest = load %MetaStackPointer, ptr %rest_pointer
 
+    %stackPointer_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 1, i32 0
+    store %StackPointer null, ptr %stackPointer_pointer
+
     call void @eraseMemory(%Memory %memory)
     call void @eraseRegion(%Region %region)
     call void @eraseMetaStack(%MetaStackPointer %metaStack)
 
-    %stackPointer_pointer = getelementptr %MetaStack, %MetaStackPointer %metaStack, i64 0, i32 1, i32 0
-    store %StackPointer null, ptr %stackPointer_pointer
-
     ret %MetaStackPointer %rest
 }
 
-define private %Memory @copyMemory(%Memory %memory) alwaysinline {
+define external %Memory @copyMemory(%Memory %memory) alwaysinline {
     %stackPointer = extractvalue %Memory %memory, 0
     %base = extractvalue %Memory %memory, 1
     %limit = extractvalue %Memory %memory, 2
@@ -690,7 +694,7 @@ define private %Memory @copyMemory(%Memory %memory) alwaysinline {
     ret %Memory %memory.2
 }
 
-define private %Region @copyRegion(%Region %region) alwaysinline {
+define external %Region @copyRegion(%Region %region) alwaysinline {
     %memory.0 = extractvalue %Region %region, 0
     %memory.1 = extractvalue %Region %region, 1
     %memory.2 = extractvalue %Region %region, 2
@@ -714,7 +718,7 @@ define private %Region @copyRegion(%Region %region) alwaysinline {
     ret %Region %region.2
 }
 
-define private %ResumptionPointer @uniqueStack(%ResumptionPointer %resumption) alwaysinline {
+define external %ResumptionPointer @uniqueStack(%ResumptionPointer %resumption) alwaysinline {
     %referenceCount_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 0
     %referenceCount = load %ReferenceCount, ptr %referenceCount_pointer
     switch %ReferenceCount %referenceCount, label %copy [%ReferenceCount 0, label %done]
@@ -730,13 +734,13 @@ copy:
     ret %ResumptionPointer %newResumption
 }
 
-define private %ResumptionPointer @copyResumption(%ResumptionPointer %resumption) alwaysinline {
-    %newResumption = call ptr @malloc(i64 120)
+define external %ResumptionPointer @copyResumption(%ResumptionPointer %resumption) alwaysinline {
+    %newResumption = call ptr @malloc(i64 128)
 
-    %metaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
-    %memory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
-    %region_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
-    %rest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %metaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %memory_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
+    %region_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %rest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 5
 
     %metaStack = load %MetaStackPointer, ptr %metaStack_pointer
     %memory = load %Memory, ptr %memory_pointer
@@ -744,10 +748,11 @@ define private %ResumptionPointer @copyResumption(%ResumptionPointer %resumption
     %rest = load %ResumptionPointer, ptr %rest_pointer
 
     %newReferenceCount_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 0
-    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 1
-    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 2
-    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 3
-    %newRest_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 4
+    %newTag_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 1
+    %newMetaStack_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 2
+    %newMemory_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 3
+    %newRegion_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 4
+    %newRest_pointer = getelementptr %Resumption, %ResumptionPointer %newResumption, i64 0, i32 5
 
     %newMemory = call %Memory @copyMemory(%Memory %memory)
 
@@ -757,6 +762,7 @@ define private %ResumptionPointer @copyResumption(%ResumptionPointer %resumption
     %newRegion = call %Region @copyRegion(%Region %region)
 
     store %ReferenceCount 0, ptr %newReferenceCount_pointer
+    store i1 0, ptr %newTag_pointer
     store %MetaStackPointer %metaStack, ptr %newMetaStack_pointer
     store %Memory %newMemory, ptr %newMemory_pointer
     store %Region %newRegion, ptr %newRegion_pointer
@@ -795,10 +801,24 @@ decr:
     ret void
 
 free:
-    %metaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
-    %stackPointer_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2, i32 0
-    %region_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3
-    %rest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %tag_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 1
+    %tag = load i1, ptr %tag_pointer
+    br i1 %tag, label %freeLazy, label %freeBackup
+
+freeLazy:
+    %start_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %end_pointer = getelementptr %LazyResumption, %ResumptionPointer %resumption, i64 0, i32 3
+    %start = load %MetaStackPointer, ptr %start_pointer
+    %end = load %MetaStackPointer, ptr %end_pointer
+    call void @free(%ResumptionPointer %resumption)
+    tail call tailcc void @eraseLazy(%MetaStackPointer %start, %MetaStackPointer %end)
+    ret void
+
+freeBackup:
+    %metaStack_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 2
+    %stackPointer_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 3, i32 0
+    %region_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 4
+    %rest_pointer = getelementptr %Resumption, %ResumptionPointer %resumption, i64 0, i32 5
 
     %metaStack = load %MetaStackPointer, ptr %metaStack_pointer
     %stackPointer = load %StackPointer, ptr %stackPointer_pointer
@@ -814,14 +834,40 @@ free:
     br i1 %isNull, label %done, label %next
 
 next:
-    call void @eraseStack(%MetaStackPointer %rest)
+    call void @eraseStack(%ResumptionPointer %rest)
     ret void
 
 done:
     ret void
 }
 
-define private void @shareFrames(%StackPointer %stackPointer) alwaysinline {
+define external tailcc void @eraseLazy(%MetaStackPointer %stack, %MetaStackPointer %end) {
+    %stackPointer_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 1, i32 0
+    %region_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 2
+
+    %stackPointer = load %StackPointer, ptr %stackPointer_pointer
+    %region = load %Region, ptr %region_pointer
+
+    store %StackPointer null, ptr %stackPointer_pointer
+
+    call void @eraseMetaStack(%MetaStackPointer %stack)
+    call void @eraseFrames(%StackPointer %stackPointer)
+    call void @eraseRegion(%Region %region)
+
+    %isEnd = icmp eq %MetaStackPointer %stack, %end
+    br i1 %isEnd, label %done, label %recurse
+
+done:
+    ret void
+
+recurse:
+    %rest_pointer = getelementptr %MetaStack, %MetaStackPointer %stack, i64 0, i32 4
+    %rest = load %MetaStackPointer, ptr %rest_pointer
+    tail call tailcc void @eraseLazy(%MetaStackPointer %rest, %MetaStackPointer %end)
+    ret void
+}
+
+define external void @shareFrames(%StackPointer %stackPointer) alwaysinline {
     %newStackPointer = getelementptr %FrameHeader, %StackPointer %stackPointer, i64 -1
     %stackSharer = getelementptr %FrameHeader, %StackPointer %newStackPointer, i64 0, i32 1
     %sharer = load %Sharer, ptr %stackSharer
@@ -829,7 +875,7 @@ define private void @shareFrames(%StackPointer %stackPointer) alwaysinline {
     ret void
 }
 
-define private void @eraseFrames(%StackPointer %stackPointer) alwaysinline {
+define external void @eraseFrames(%StackPointer %stackPointer) alwaysinline {
     %newStackPointer = getelementptr %FrameHeader, %StackPointer %stackPointer, i64 -1
     %stackEraser = getelementptr %FrameHeader, %StackPointer %newStackPointer, i64 0, i32 2
     %eraser = load %Eraser, ptr %stackEraser
@@ -839,23 +885,23 @@ define private void @eraseFrames(%StackPointer %stackPointer) alwaysinline {
 
 ; RTS initialization
 
-define private tailcc void @topLevel(%Pos %val, %MetaStackPointer %stack) {
+define external tailcc void @topLevel(%Pos %val, %MetaStackPointer %stack) {
     %rest = call %MetaStackPointer @underflowStack(%MetaStackPointer %stack)
     ; assert %rest == null
     ret void
 }
 
-define private void @topLevelSharer(%Environment %environment) {
+define external void @topLevelSharer(%Environment %environment) {
     ; TODO this should never be called
     ret void
 }
 
-define private void @topLevelEraser(%Environment %environment) {
+define external void @topLevelEraser(%Environment %environment) {
     ; TODO this should never be called
     ret void
 }
 
-define private %MetaStackPointer @withEmptyStack() {
+define external %MetaStackPointer @withEmptyStack() {
     ; TODO all stacks share the same source of fresh prompts
     %metaStack = call %MetaStackPointer @freshPrompt()
 

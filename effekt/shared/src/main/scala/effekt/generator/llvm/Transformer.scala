@@ -447,10 +447,8 @@ object Transformer {
       case machine.PushStack(value, rest) =>
         emit(Comment(s"pushStack ${value.name}"))
         shareValues(List(value), freeVariables(rest));
-        val uniqueStackName = freshName("stack");
         val newStackName = freshName("stack");
-        emit(Call(uniqueStackName, Ccc(), resumptionType, uniqueStack, List(transform(value))));
-        emit(Call(newStackName, Ccc(), stackType, pushStack, List(LocalReference(resumptionType, uniqueStackName), getStack())));
+        emit(Call(newStackName, Ccc(), stackType, pushStack, List(transform(value), getStack())));
         setStack(LocalReference(stackType, newStackName));
         transform(rest)
 
@@ -458,7 +456,7 @@ object Transformer {
         emit(Comment(s"popStacks ${variable.name}, prompt=${prompt.name}"))
 
         val newStackPointer = LocalReference(PointerType(), freshName("stack_pointer"))
-        emit(GetElementPtr(newStackPointer.name, NamedType("MetaStack"), transform(prompt), List(0, 3)))
+        emit(GetElementPtr(newStackPointer.name, NamedType("MetaStack"), transform(prompt), List(0, 4)))
         val newStack = LocalReference(stackType, freshName("stack"))
         emit(Load(newStack.name, stackType, newStackPointer))
 
