@@ -560,7 +560,7 @@ define private %Stack @withEmptyStack() {
     ; TODO all stacks share the same source of fresh prompts
     %globals = call %Stack @reset(%Stack null)
 
-    %globalsStackPointer_pointer = getelementptr %StackValue, %Stack %globalsStack, i64 0, i32 1, i32 0
+    %globalsStackPointer_pointer = getelementptr %StackValue, %Stack %globals, i64 0, i32 1, i32 0
     %globalsStackPointer = load %StackPointer, ptr %globalsStackPointer_pointer
 
     %returnAddressPointer.0 = getelementptr %FrameHeader, %StackPointer %globalsStackPointer, i64 0, i32 0
