@@ -703,8 +703,8 @@ object Transformer {
     emit(Load(returnAddressName, returnAddressType, returnAddressPointer));
   }
 
-  val malloc = ConstantGlobal("malloc");
-  val free = ConstantGlobal("free");
+  val malloc = ConstantGlobal("mi_malloc");
+  val free = ConstantGlobal("mi_free");
 
   val newObject = ConstantGlobal("newObject");
   val objectEnvironment = ConstantGlobal("objectEnvironment");

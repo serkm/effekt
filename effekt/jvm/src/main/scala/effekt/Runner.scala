@@ -297,7 +297,7 @@ object LLVMRunner extends Runner[String] {
       }
     }
     (libraries, includes) match {
-      case (Some(lib), Some(include)) => Seq(s"-L${lib.unixPath}", "-luv", s"-I${include.unixPath}")
+      case (Some(lib), Some(include)) => Seq(s"-L${lib.unixPath}", "-luv", "-lmimalloc", s"-I${include.unixPath}")
       case _ =>
         C.warning(s"Cannot find libuv on ${OS}; please use --gcc-libraries and --gcc-includes to configure the paths for the libuv dylib and header files, respectively.")
         Seq()

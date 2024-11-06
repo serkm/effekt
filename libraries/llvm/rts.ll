@@ -99,9 +99,9 @@
 
 ; Foreign imports
 
-declare ptr @malloc(i64)
-declare void @free(ptr)
-declare ptr @realloc(ptr, i64)
+declare ptr @mi_malloc(i64)
+declare void @mi_free(ptr)
+declare ptr @mi_realloc(ptr, i64)
 declare void @memcpy(ptr, ptr, i64)
 declare i64 @llvm.ctlz.i64 (i64 , i1)
 declare i64 @llvm.fshr.i64(i64, i64, i64)
@@ -123,7 +123,7 @@ define private %Prompt @currentPrompt(%Stack %stack) {
 
 define private %Prompt @freshPrompt() {
     %promptSize = ptrtoint ptr getelementptr (%PromptValue, ptr null, i64 1) to i64
-    %prompt = call %Prompt @malloc(i64 %promptSize)
+    %prompt = call %Prompt @mi_malloc(i64 %promptSize)
     store %PromptValue zeroinitializer, %Prompt %prompt
     ret %Prompt %prompt
 }
@@ -133,7 +133,7 @@ define private %Prompt @freshPrompt() {
 define private %Object @newObject(%Eraser %eraser, i64 %environmentSize) alwaysinline {
     %headerSize = ptrtoint ptr getelementptr (%Header, ptr null, i64 1) to i64
     %size = add i64 %environmentSize, %headerSize
-    %object = call ptr @malloc(i64 %size)
+    %object = call ptr @mi_malloc(i64 %size)
     %objectReferenceCount = getelementptr %Header, ptr %object, i64 0, i32 0
     %objectEraser = getelementptr %Header, ptr %object, i64 0, i32 1
     store %ReferenceCount 0, ptr %objectReferenceCount
@@ -193,7 +193,7 @@ define private void @eraseObject(%Object %object) alwaysinline {
     %eraser = load %Eraser, ptr %objectEraser
     %environment = call %Environment @objectEnvironment(%Object %object)
     call void %eraser(%Environment %environment)
-    call void @free(%Object %object)
+    call void @mi_free(%Object %object)
     br label %done
 
     done:
@@ -280,7 +280,7 @@ realloc:
     %nextSize = add i64 %size, %n
     %newSize = call i64 @nextPowerOfTwo(i64 %nextSize)
 
-    %newBase = call ptr @realloc(ptr %base, i64 %newSize)
+    %newBase = call ptr @mi_realloc(ptr %base, i64 %newSize)
     %newLimit = getelementptr i8, %Base %newBase, i64 %newSize
     %newStackPointer = getelementptr i8, %Base %newBase, i64 %size
     %newNextStackPointer = getelementptr i8, %StackPointer %newStackPointer, i64 %n
@@ -314,7 +314,7 @@ define i64 @nextPowerOfTwo(i64 %x) {
 
 define private %Memory @newMemory() {
     %size = shl i64 1, 6
-    %stackPointer = call %StackPointer @malloc(i64 %size)
+    %stackPointer = call %StackPointer @mi_malloc(i64 %size)
     %limit = getelementptr i8, ptr %stackPointer, i64 %size
 
     %memory.0 = insertvalue %Memory undef, %StackPointer %stackPointer, 0
@@ -329,7 +329,7 @@ define private %Stack @reset(%Stack %oldStack) {
     %prompt = call %Prompt @freshPrompt()
 
     %size = ptrtoint ptr getelementptr (%StackValue, ptr null, i64 1) to i64
-    %stack = call ptr @malloc(i64 %size)
+    %stack = call ptr @mi_malloc(i64 %size)
 
 
     %stackMemory = call %Memory @newMemory()
@@ -423,7 +423,7 @@ define private {%Resumption, %Stack} @shift(%Stack %stack, %Prompt %prompt) {
 
 define private void @eraseMemory(%Memory %memory) {
     %stackPointer = extractvalue %Memory %memory, 0
-    call void @free(%StackPointer %stackPointer)
+    call void @mi_free(%StackPointer %stackPointer)
     ret void
 }
 
@@ -462,7 +462,7 @@ decrement:
     ret void
 
 free:
-    call void @free(%Prompt %prompt)
+    call void @mi_free(%Prompt %prompt)
     ret void
 }
 
@@ -487,7 +487,7 @@ define private %Stack @underflowStack(%Stack %stack) {
 
     call void @eraseMemory(%Memory %memory)
     call void @erasePrompt(%Prompt %prompt, i1 false)
-    call void @free(%Stack %stack)
+    call void @mi_free(%Stack %stack)
 
     ret %Stack %rest
 }
@@ -507,7 +507,7 @@ define private %Memory @copyMemory(%Memory %memory) alwaysinline {
     %used = sub i64 %intStackPointer, %intBase
     %size = sub i64 %intLimit, %intBase
 
-    %newBase = call ptr @malloc(i64 %size)
+    %newBase = call ptr @mi_malloc(i64 %size)
     %intNewBase = ptrtoint %Base %newBase to i64
     %intNewStackPointer = add i64 %intNewBase, %used
     %intNewLimit = add i64 %intNewBase, %size
@@ -541,7 +541,7 @@ copy:
     %stack = load %Stack, ptr %stack_pointer
 
     %size = ptrtoint ptr getelementptr (%StackValue, ptr null, i64 1) to i64
-    %newHead = call ptr @malloc(i64 %size)
+    %newHead = call ptr @mi_malloc(i64 %size)
 
     br label %loop
 
@@ -579,7 +579,7 @@ loop:
     br i1 %isEnd, label %stop, label %next
 
 next:
-    %nextNew = call ptr @malloc(i64 %size)
+    %nextNew = call ptr @mi_malloc(i64 %size)
     store %Stack %nextNew, ptr %newStackRest
     br label %loop
 
@@ -625,7 +625,7 @@ define void @eraseStack(%Stack %stack) alwaysinline {
     %dirtyBit = load i1, ptr %dirtyBit_pointer
     %rest = load %Stack, ptr %rest_pointer
 
-    call void @free(%Stack %stack)
+    call void @mi_free(%Stack %stack)
     call void @eraseFrames(%StackPointer %stackPointer)
     call void @erasePrompt(%Prompt %prompt, i1 %dirtyBit)
 
@@ -689,7 +689,7 @@ define private %Stack @withEmptyStack() {
 
     store ptr @nop, ptr %returnAddressPointer.0
     store ptr @nop, ptr %sharerPointer.0
-    store ptr @free, ptr %eraserPointer.0
+    store ptr @mi_free, ptr %eraserPointer.0
 
     %globalsStackPointer_2 = getelementptr %FrameHeader, %StackPointer %globalsStackPointer, i64 1
     store %StackPointer %globalsStackPointer_2, ptr %globalsStackPointer_pointer
