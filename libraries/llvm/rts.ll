@@ -100,6 +100,7 @@
 ; Foreign imports
 
 declare ptr @mi_malloc(i64)
+declare ptr @mi_malloc_small(i64)
 declare void @mi_free(ptr)
 declare ptr @mi_realloc(ptr, i64)
 declare void @memcpy(ptr, ptr, i64)
@@ -123,7 +124,7 @@ define private %Prompt @currentPrompt(%Stack %stack) {
 
 define private %Prompt @freshPrompt() {
     %promptSize = ptrtoint ptr getelementptr (%PromptValue, ptr null, i64 1) to i64
-    %prompt = call %Prompt @mi_malloc(i64 %promptSize)
+    %prompt = call %Prompt @mi_malloc_small(i64 %promptSize)
     store %PromptValue zeroinitializer, %Prompt %prompt
     ret %Prompt %prompt
 }
@@ -133,7 +134,10 @@ define private %Prompt @freshPrompt() {
 define private %Object @newObject(%Eraser %eraser, i64 %environmentSize) alwaysinline {
     %headerSize = ptrtoint ptr getelementptr (%Header, ptr null, i64 1) to i64
     %size = add i64 %environmentSize, %headerSize
-    %object = call ptr @mi_malloc(i64 %size)
+    %maxSmallSize = ptrtoint ptr getelementptr (ptr, ptr null, i64 128) to i64
+    %isSmall = icmp ult i64 %size, %maxSmallSize
+    %mi_malloc = select i1 %isSmall, ptr @mi_malloc_small, ptr @mi_malloc
+    %object = call ptr %mi_malloc(i64 %size)
     %objectReferenceCount = getelementptr %Header, ptr %object, i64 0, i32 0
     %objectEraser = getelementptr %Header, ptr %object, i64 0, i32 1
     store %ReferenceCount 0, ptr %objectReferenceCount
@@ -329,7 +333,7 @@ define private %Stack @reset(%Stack %oldStack) {
     %prompt = call %Prompt @freshPrompt()
 
     %size = ptrtoint ptr getelementptr (%StackValue, ptr null, i64 1) to i64
-    %stack = call ptr @mi_malloc(i64 %size)
+    %stack = call ptr @mi_malloc_small(i64 %size)
 
 
     %stackMemory = call %Memory @newMemory()
@@ -541,7 +545,7 @@ copy:
     %stack = load %Stack, ptr %stack_pointer
 
     %size = ptrtoint ptr getelementptr (%StackValue, ptr null, i64 1) to i64
-    %newHead = call ptr @mi_malloc(i64 %size)
+    %newHead = call ptr @mi_malloc_small(i64 %size)
 
     br label %loop
 
@@ -579,7 +583,7 @@ loop:
     br i1 %isEnd, label %stop, label %next
 
 next:
-    %nextNew = call ptr @mi_malloc(i64 %size)
+    %nextNew = call ptr @mi_malloc_small(i64 %size)
     store %Stack %nextNew, ptr %newStackRest
     br label %loop
 
