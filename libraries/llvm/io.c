@@ -57,7 +57,7 @@ void c_resume_int_fs(uv_fs_t* request) {
     Stack stack = (Stack)request->data;
 
     uv_fs_req_cleanup(request);
-    free(request);
+    mi_free(request);
 
     resume_Int(stack, result);
 }
@@ -106,19 +106,19 @@ void c_fs_open(String path, struct Pos mode, Stack stack) {
     int flags = modeFlags(mode);
     erasePositive((struct Pos) mode);
 
-    uv_fs_t* request = malloc(sizeof(uv_fs_t));
+    uv_fs_t* request = mi_malloc(sizeof(uv_fs_t));
     request->data = stack;
 
     int result = uv_fs_open(uv_default_loop(), request, path_str, flags, 0666, c_resume_int_fs);
 
     if (result < 0) {
         uv_fs_req_cleanup(request);
-        free(request);
+        mi_free(request);
         resume_Int(stack, result);
     }
 
     // We must free the string either way, since libuv copies it into the request
-    free(path_str);
+    mi_free(path_str);
 
     return;
 }
@@ -129,14 +129,14 @@ void c_fs_read(Int file, struct Pos buffer, Int offset, Int size, Int position, 
     // erasePositive(buffer);
     // TODO we should erase the buffer but abort if this was the last reference
 
-    uv_fs_t* request = malloc(sizeof(uv_fs_t));
+    uv_fs_t* request = mi_malloc(sizeof(uv_fs_t));
     request->data = stack;
 
     int result = uv_fs_read(uv_default_loop(), request, file, &buf, 1, position, c_resume_int_fs);
 
     if (result < 0) {
         uv_fs_req_cleanup(request);
-        free(request);
+        mi_free(request);
         resume_Int(stack, result);
     }
 }
@@ -147,28 +147,28 @@ void c_fs_write(Int file, struct Pos buffer, Int offset, Int size, Int position,
     // erasePositive(buffer);
     // TODO we should erase the buffer but abort if this was the last reference
 
-    uv_fs_t* request = malloc(sizeof(uv_fs_t));
+    uv_fs_t* request = mi_malloc(sizeof(uv_fs_t));
     request->data = stack;
 
     int result = uv_fs_write(uv_default_loop(), request, file, &buf, 1, position, c_resume_int_fs);
 
     if (result < 0) {
         uv_fs_req_cleanup(request);
-        free(request);
+        mi_free(request);
         resume_Int(stack, result);
     }
 }
 
 void c_fs_close(Int file, Stack stack) {
 
-    uv_fs_t* request = malloc(sizeof(uv_fs_t));
+    uv_fs_t* request = mi_malloc(sizeof(uv_fs_t));
     request->data = stack;
 
     int result = uv_fs_close(uv_default_loop(), request, file, c_resume_int_fs);
 
     if (result < 0) {
         uv_fs_req_cleanup(request);
-        free(request);
+        mi_free(request);
         resume_Int(stack, result);
     }
 }
@@ -273,13 +273,13 @@ void c_resume_unit_timer(uv_timer_t* handle) {
     Stack stack = handle->data;
 
     uv_timer_stop(handle);
-    uv_close((uv_handle_t*)handle, (uv_close_cb)free);
+    uv_close((uv_handle_t*)handle, (uv_close_cb)mi_free);
 
     resume_Pos(stack, Unit);
 }
 
 void c_timer_start(Int millis, Stack stack) {
-    uv_timer_t* timer = malloc(sizeof(uv_timer_t));
+    uv_timer_t* timer = mi_malloc(sizeof(uv_timer_t));
     timer->data = stack;
 
     uv_timer_init(uv_default_loop(), timer);
@@ -337,7 +337,7 @@ void c_promise_erase_listeners(void *envPtr) {
                 while (current != NULL) {
                     head = current->head;
                     tail = current->tail;
-                    free(current);
+                    mi_free(current);
                     eraseStack(head);
                     current = tail;
                 };
@@ -353,7 +353,7 @@ void c_promise_resume_listeners(Listeners* listeners, struct Pos value) {
     if (listeners != NULL) {
         Stack head = listeners->head;
         Listeners* tail = listeners->tail;
-        free(listeners);
+        mi_free(listeners);
         c_promise_resume_listeners(tail, value);
         sharePositive(value);
         resume_Pos(head, value);
@@ -409,7 +409,7 @@ void c_promise_await(struct Pos promise, Stack stack) {
             head = p->payload.listeners.head;
             tail = p->payload.listeners.tail;
             if (head != NULL) {
-                node = (Listeners*)malloc(sizeof(Listeners));
+                node = (Listeners*)mi_malloc(sizeof(Listeners));
                 node->head = head;
                 node->tail = tail;
                 p->payload.listeners.head = stack;
@@ -429,7 +429,7 @@ void c_promise_await(struct Pos promise, Stack stack) {
 }
 
 struct Pos c_promise_make() {
-    Promise* promise = (Promise*)malloc(sizeof(Promise));
+    Promise* promise = (Promise*)mi_malloc(sizeof(Promise));
 
     promise->rc = 0;
     promise->eraser = c_promise_erase_listeners;

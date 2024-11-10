@@ -16,7 +16,7 @@ void c_ref_erase_field(void *envPtr) {
 }
 
 struct Pos c_ref_fresh(const struct Pos value) {
-  void *objPtr = malloc(sizeof(struct Header) + sizeof(struct Pos));
+  void *objPtr = mi_malloc(sizeof(struct Header) + sizeof(struct Pos));
   struct Header *headerPtr = objPtr;
   struct Pos *fieldPtr = objPtr + sizeof(struct Header);
   *headerPtr = (struct Header) { .rc = 0, .eraser = c_ref_erase_field, };

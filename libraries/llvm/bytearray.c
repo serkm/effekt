@@ -19,7 +19,7 @@
 void c_bytearray_erase_noop(void *envPtr) { (void)envPtr; }
 
 struct Pos c_bytearray_new(const Int size) {
-  void *objPtr = malloc(sizeof(struct Header) + size);
+  void *objPtr = mi_malloc(sizeof(struct Header) + size);
   struct Header *headerPtr = objPtr;
   *headerPtr = (struct Header) { .rc = 0, .eraser = c_bytearray_erase_noop, };
   return (struct Pos) {
@@ -68,7 +68,7 @@ struct Pos c_bytearray_from_nullterminated_string(const char *data) {
 char* c_bytearray_into_nullterminated_string(const struct Pos arr) {
     uint64_t size = c_bytearray_size(arr);
 
-    char* result = (char*)malloc(size + 1);
+    char* result = (char*)mi_malloc(size + 1);
 
     memcpy(result, c_bytearray_data(arr), size);
 

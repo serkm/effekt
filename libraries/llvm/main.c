@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <mimalloc.h>
 
 #define DEBUG_REFCOUNT (false)
 

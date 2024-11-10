@@ -19,7 +19,7 @@ void c_array_erase_fields(void *envPtr) {
 }
 
 struct Pos c_array_new(const Int size) {
-  void *objPtr = calloc(sizeof(struct Header) + sizeof(uint64_t) + size * sizeof(struct Pos), 1);
+  void *objPtr = mi_calloc(sizeof(struct Header) + sizeof(uint64_t) + size * sizeof(struct Pos), 1);
   struct Header *headerPtr = objPtr;
   uint64_t *sizePtr = objPtr + sizeof(struct Header);
   *headerPtr = (struct Header) { .rc = 0, .eraser = c_array_erase_fields, };
