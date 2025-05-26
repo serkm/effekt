@@ -82,7 +82,7 @@
 %Neg = type {ptr, %Object}
 
 ; Reference to a mutable variable (prompt, offset)
-%Reference = type { %Prompt, i64 }
+%Reference = type ptr
 
 ; Builtin Types
 
@@ -249,29 +249,14 @@ define private %Stack @getStack(%Prompt %prompt) {
 }
 
 define private ptr @getVarPointer(%Reference %reference, %Stack %stack) {
-    %prompt = extractvalue %Reference %reference, 0
-    %offset = extractvalue %Reference %reference, 1
-
-    %targetStack = call %Stack @getStack(%Prompt %prompt)
-    %varPointer = getelementptr i8, %Base %targetStack, i64 %offset
-    ret ptr %varPointer
+    ret ptr %reference
 }
 
 define private %Reference @newReference(%Stack %stack) alwaysinline {
     %stackPointer_pointer = getelementptr %StackValue, %Stack %stack, i64 0, i32 1
     %stackPointer = load %StackPointer, ptr %stackPointer_pointer, !alias.scope !11, !noalias !21
 
-    %intStack = ptrtoint %StackPointer %stackPointer to i64
-    %intBase = ptrtoint %Stack %stack to i64
-
-    %offset = sub i64 %intStack, %intBase
-
-    %prompt = call %Prompt @currentPrompt(%Stack %stack)
-
-    %reference..1 = insertvalue %Reference undef, %Prompt %prompt, 0
-    %reference = insertvalue %Reference %reference..1, i64 %offset, 1
-
-    ret %Reference %reference
+    ret %Reference %stackPointer
 }
 
 ; Stack management
@@ -368,7 +353,7 @@ define private %Stack @reset(%Stack %oldStack) {
 
     %prompt = call %Prompt @freshPrompt()
 
-    %size = shl i64 1, 7
+    %size = shl i64 1, 15
     %stack = call ptr @malloc(i64 %size)
     %stackPointer = getelementptr %StackValue, %Stack %stack, i64 1
     %limit = getelementptr i8, ptr %stack, i64 %size

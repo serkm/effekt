@@ -421,7 +421,7 @@ object Transformer {
       case machine.Type.Int()        => 8 // TODO Make fat?
       case machine.Type.Byte()       => 1
       case machine.Type.Double()     => 8 // TODO Make fat?
-      case machine.Type.Reference(_) => 16
+      case machine.Type.Reference(_) => 8
     }
 
   def defineFunction(name: String, parameters: List[Parameter])(prog: (FunctionContext, BlockContext) ?=> Terminator): ModuleContext ?=> Unit = {
